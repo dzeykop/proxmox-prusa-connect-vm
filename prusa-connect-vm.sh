@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # =============================================================================
 #  Prusa Connect Local – Proxmox VM installer
-#  Version: 1.0.0
+#  Version: 1.0.1
 #  Author:  JFFK (github.com/dzeykop)
-#  Repo:    https://github.com/dzeykop/proxmox-prusa-connect
+#  Repo:    https://github.com/dzeykop/proxmox-prusa-connect-vm
 #
 #  Creates a Debian 13 VM (cloud image + cloud-init) on Proxmox VE and
 #  installs Prusa Connect Local (binary + systemd service) inside it.
 #
 #  Run on the Proxmox host as root:
-#    bash -c "$(curl -fsSL https://raw.githubusercontent.com/dzeykop/proxmox-prusa-connect/main/prusa-connect-vm.sh)"
+#    bash -c "$(curl -fsSL https://raw.githubusercontent.com/dzeykop/proxmox-prusa-connect-vm/main/prusa-connect-vm.sh)"
 # =============================================================================
 
 set -Eeuo pipefail
 
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.0.1"
 APP_NAME="Prusa Connect Local"
 GH_REPO="prusa3d/prusa-connect"
 ASSET_NAME="prusa_connect_amd64"
@@ -81,7 +81,7 @@ curl -fsS --max-time 10 -o /dev/null https://api.github.com \
 msg_ok "Internet connection OK"
 
 whiptail --title "$TITLE" --yesno \
-"This will create a new Debian 13 VM with ${APP_NAME}.\n\nTip: an LXC container (prusa-connect-lxc.sh) needs fewer resources.\n\nProceed with a VM?" 12 66 \
+"This will create a new Debian 13 VM with ${APP_NAME}.\n\nTip: an LXC container (repo proxmox-prusa-connect-lxc) needs fewer resources.\n\nProceed with a VM?" 12 66 \
   || cancelled
 
 # ---------- 2. host resources -------------------------------------------------
@@ -267,7 +267,7 @@ msg_ok "cloud-init configuration written"
 
 # ---------- 7. create VM --------------------------------------------------------
 msg_info "Creating VM ${VMID}..."
-DESCRIPTION="<h3>${APP_NAME}</h3><p>Installed with proxmox-prusa-connect (VM) v${SCRIPT_VERSION}<br>Release: ${REL_TAG}<br>Web UI: port ${APP_PORT}<br>SSH user: ${VM_USER}</p><p>from JFFK</p>"
+DESCRIPTION="<h3>${APP_NAME}</h3><p>Installed with proxmox-prusa-connect-vm v${SCRIPT_VERSION}<br>Release: ${REL_TAG}<br>Web UI: port ${APP_PORT}<br>SSH user: ${VM_USER}</p><p>from JFFK</p>"
 qm create "$VMID" --name "$VM_NAME" \
   --cores "$CORES" --memory "$RAM" --cpu host \
   --net0 "virtio,bridge=${BRIDGE}" \

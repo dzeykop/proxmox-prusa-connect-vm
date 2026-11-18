@@ -1,70 +1,60 @@
-# proxmox-prusa-connect
+# proxmox-prusa-connect-vm
 
 One-command installer for **Prusa Connect Local** on Proxmox VE.
-Runs Prusa Connect Local as a systemd service – no cloud, no Prusa Account.
+It creates a **Debian 13 virtual machine** (cloud image + cloud-init) and runs Prusa Connect Local as a systemd service – no cloud, no Prusa Account.
 
 ## Quick start
 
-Run on the Proxmox host as root (via SSH). Choose **one** of the two:
-
-**LXC container (recommended)** – unprivileged Debian container, very light:
+Run on the Proxmox host as root (via SSH):
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/dzeykop/proxmox-prusa-connect/main/prusa-connect-lxc.sh)"
-```
-
-**Virtual machine** – Debian 13 cloud image with cloud-init, stronger isolation, more resources:
-
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/dzeykop/proxmox-prusa-connect/main/prusa-connect-vm.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/dzeykop/proxmox-prusa-connect-vm/main/prusa-connect-vm.sh)"
 ```
 
 > Always review a script before running it as root.
 
-### LXC or VM?
+## Requirements
 
-|                  | LXC                  | VM                              |
-|------------------|----------------------|---------------------------------|
-| RAM (recommended)| 512 MB               | 1024 MB                         |
-| Disk             | 8 GB                 | 10 GB                           |
-| Install time     | ~1–2 min             | ~5–10 min (cloud-init)          |
-| Isolation        | shares host kernel   | own kernel                      |
-| Login            | `pct enter <CTID>`   | `ssh jffk@<vm-ip>` (password set in the installer) |
-
-The VM installer needs a storage with the content type **snippets** for cloud-init. If none exists, it offers to enable it on `local`.
+- Proxmox VE 8 or 9, amd64
+- A storage with the content type **snippets** (for cloud-init). If none exists, the script offers to enable it on `local` – existing content types are kept.
 
 ## What the script does
 
 1. Checks: root, Proxmox host, amd64, internet connection
-2. Asks for container ID, hostname, CPU, RAM, storage, disk, bridge, DHCP/static IP
-3. Downloads the newest `prusa_connect_amd64` from [prusa3d/prusa-connect](https://github.com/prusa3d/prusa-connect) and verifies its SHA256 checksum
-4. Downloads the newest Debian template (if needed) and creates the container
-5. Installs the binary to `/opt/prusa-connect`, runs it as user `prusa-connect` via systemd
-6. Shows the web address (port 8080) and the one-time setup code
-7. Removes the unfinished container automatically if anything fails
+2. Asks for VM ID, name, CPU, RAM, storage, disk, bridge, DHCP/static IP and a password for the SSH user `jffk`
+3. Finds the newest `prusa_connect_amd64` release from [prusa3d/prusa-connect](https://github.com/prusa3d/prusa-connect)
+4. Downloads the Debian 13 cloud image and verifies its SHA512 checksum
+5. Creates the VM; cloud-init installs updates, the QEMU guest agent and Prusa Connect Local (SHA256 checked) in `/opt/prusa-connect`
+6. Waits for the VM IP and the web interface, then shows the address (port 8080) and the one-time setup code
+7. Removes the unfinished VM automatically if anything fails before it starts
+
+The first boot takes about 3–8 minutes.
 
 ## Default settings
 
-| Setting   | LXC recommended / min | VM recommended / min |
-|-----------|-----------------------|----------------------|
-| CPU cores | 1 / 1                 | 1 / 1                |
-| RAM       | 512 / 256 MB          | 1024 / 512 MB        |
-| Disk      | 8 / 4 GB              | 10 / 8 GB            |
+| Setting   | Recommended | Minimum |
+|-----------|-------------|---------|
+| CPU cores | 1           | 1       |
+| RAM       | 1024 MB     | 512 MB  |
+| Disk      | 10 GB       | 8 GB    |
 
-Print files are stored on the container disk – choose more space if you keep many G-codes.
+Print files are stored on the VM disk – choose more space if you keep many G-codes.
 
 ## After the installation
 
-1. Open `http://<container-ip>:8080` and enter the setup code
+1. Open `http://<vm-ip>:8080` and enter the setup code
 2. Create the admin account in the wizard
 3. Add a printer: download the settings file, copy it to a USB drive, load it on the printer (Settings → Network → Prusa Connect). Firmware 6.4.0 or newer is required.
 
-Setup code lost? Show it with:
+Log in to the VM:
 
 ```bash
-# LXC (on the Proxmox host)
-pct exec <CTID> -- journalctl -u prusa-connect --no-pager
-# VM (inside the VM)
+ssh jffk@<vm-ip>
+```
+
+Setup code lost? Show it inside the VM with:
+
+```bash
 sudo journalctl -u prusa-connect --no-pager
 ```
 
@@ -73,16 +63,25 @@ sudo journalctl -u prusa-connect --no-pager
 Prusa Connect Local is still beta (0.x) – configuration and API may change. **Take a snapshot before every update:**
 
 ```bash
-pct snapshot <CTID> before-update   # LXC
-qm snapshot <VMID> before-update    # VM
+qm snapshot <VMID> before-update
 ```
+
+## Troubleshooting
+
+| Message | Meaning |
+|---------|---------|
+| `No internet connection` | The Proxmox host cannot reach GitHub – check DNS/gateway |
+| `Checksum mismatch` | The download is damaged – run the command again; nothing was installed |
+| `Could not detect the VM IP yet` | cloud-init is still running – check the VM console or your router |
+| `Web interface did not answer yet` | In the VM run `cloud-init status` and `journalctl -u prusa-connect` |
+| `[ROLLBACK] ... removing unfinished VM` | Installation failed; the half-created VM was removed |
 
 ## Changelog
 
-| Script                | Version | Changes |
-|-----------------------|---------|---------|
-| prusa-connect-vm.sh   | 1.0.0   | First release |
-| prusa-connect-lxc.sh  | 1.0.0   | First release |
+| Version | Changes |
+|---------|---------|
+| 1.0.1   | Own repository (proxmox-prusa-connect-vm) |
+| 1.0.0   | First release |
 
 ---
 from JFFK
